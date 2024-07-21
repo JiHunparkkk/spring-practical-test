@@ -1,0 +1,83 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.0'
+    id 'io.spring.dependency-management' version '1.1.5'
+    id "org.asciidoctor.jvm.convert" version "3.3.2"
+}
+
+group = 'sample'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+    asciidoctorExt
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    //Spring boot
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    //lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    //h2
+    runtimeOnly 'com.h2database:h2'
+
+    //test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Guava
+    implementation("com.google.guava:guava:33.2.1-jre")
+
+    //RestDocs
+    asciidoctorExt 'org.springframework.restdocs:spring-restdocs-asciidoctor'
+    testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+ext { //전역 변수 선언, 문서의 조각조각을 snippet, 이거에대한 정의, 빌드한 jar 파일 안에 문서를 담을 건데 그 과정을 gradle task 로 정의 (경로)
+    snippetsDir = file('build/generated-snippets')
+}
+
+//RestDocs 를 만들기 위한 테스트를 작성 -> 테스트에 대한 결과물인 문서 파일이 나오는데 그걸 snippetDir 에 넣는것.
+test {  // 테스트가 끝난 결과물을 snippetsDir 로 지정
+    outputs.dir snippetsDir
+}
+
+asciidoctor {
+    inputs.dir snippetsDir  // 결과물을 받아서
+    configurations 'asciidoctorExt' //확장 플러그인을 이용해 문서를 만듬
+
+    sources {   //특정 파일만 html로 만든다.
+        include("**/index.adoc")
+    }
+
+    baseDirFollowsSourceFile()  //다른 adoc 파일을 include 할 때 경로를 baseDir 로 맞춘다.
+    dependsOn test  //작업 순서, 위의 test 가 수행된 다음에 asciidoctor 를 실행하겠다는 것.
+}
+
+bootJar {
+    dependsOn asciidoctor
+    from("${asciidoctor.outputDir}") {  //나온 문서를
+        into 'static/docs'//정적 파일로 보기위해서 해당 위치에 복사
+    }
+}
